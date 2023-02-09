@@ -68,7 +68,7 @@ firewall-cmd --permanent --add-port=30000-32767/tcp
 
 ```sh
 dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
-dnf makecahe
+dnf makecache
 dnf install docker-ce -y
 ```
 
@@ -106,18 +106,19 @@ mkdir /etc/systemd/system/docker.service.d
 mkdir /etc/systemd/system/containerd.service.d
 ```
 
-/etc/systemd/system/docker.service.d/http-proxy.confに以下を書き込む
+/etc/systemd/system/docker.service.d/http-proxy.confと/etc/systemd/system/containerd.service.d/http-proxy.confに以下を書き込む
 
 ```conf
 [Service]
 Environment="HTTP_PROXY=http://proxy-host:proxy-port/"
 Environment="HTTPS_PROXY=http://proxy-host:proxy-port/"
-Environment="NO_PROXY=localhost,127.0.0.0/8,localip_of_machine"
+Environment="NO_PROXY=localhost,127.0.0.0/8,192.168.122.0/24,10.96.0.0/12,10.244.0.0/16"
 ```
 
 ```sh
 systemctl daemon-reload 
 systemctl restart docker
+systemctl restart containerd
 ```
 
 .bashrcに以下を書き込む
@@ -127,7 +128,7 @@ export http_proxy=http://proxy-host:proxy-port/
 export HTTP_PROXY=$http_proxy
 export https_proxy=$http_proxy
 export HTTPS_PROXY=$http_proxy
-export no_proxy="localip_of_machine,127.0.0.1,10.96.0.0/12,10.244.0.0/16";
+export no_proxy="192.168.122.0/24,127.0.0.1,10.96.0.0/12,10.244.0.0/16";
 export NO_PROXY=$no_proxy
 ```
 
@@ -158,10 +159,12 @@ systemctl enable --now kubelet
 systemctl status kubelet
 ```
 
+ここまではすべてのノードで行う
+
 マスターノードの初期化(Flannelを使う場合はipは10.244.0.0/16を指定する必要がある)
 
 ```sh
-kubeadm init --apiserver-advertise-address= localip_of_machine --service-cidr=10.96.0.0/12 --pod-network-cidr=10.244.0.0/16
+kubeadm init --apiserver-advertise-address=192.168.122.100 --service-cidr=10.96.0.0/12 --pod-network-cidr=10.244.0.0/16
 ```
 
 以下のようなものが表示されること
@@ -174,13 +177,6 @@ kubeadm join 192.168.2.201:6443 --token k9oipi.grpjhyspab2jjk9b \
 $ mkdir -p $HOME/.kube
 $ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 $ sudo chown $(id -u):$(id -g) $HOME/.kube/config
-```
-
-コマンドの入力補完を設定
-
-```sh
-$ echo "source <(kubectl completion bash)" >> $HOME/.bashrc
-$ source ~/.bashrc
 ```
 
 kubectlが使えることを確認
@@ -201,43 +197,6 @@ $ kubectl get node
 Readyと表示されることを確認(Pod間通信が有効であることを確認)
 
 ## workerノードをクラスタにjoin
-
-masterノードの~/.kube/configをworkerに転送
-
-```sh
-$ scp /home/master/.kube/config worker1@192.168.2.202:/home/worker1/
-```
-
-workerノードで，転送されたファイルを~/.kube/configに移動
-
-```sh
-$ mkdir .kube
-$ mv config .kube/
-```
-
-/etc/containerd/config.tomlの以下の場所を書き換えます
-
-https://kubernetes.io/docs/setup/production-environment/container-runtimes/#containerd-systemd
-
-```toml
-[plugins]
-  [plugins."io.containerd.grpc.v1.cri"]
-    [plugins."io.containerd.grpc.v1.cri".containerd]
-      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
-        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-            SystemdCgroup = true
-```
-
-```sh
-$ containerd config default > config.toml
-$ vi config.toml
-$ cat config.toml | sudo tee /etc/containerd/config.toml
-```
-
-```sh
-$ sudo systemctl restart containerd
-```
 
 workerノードで，コピペしておいた以下のコマンドを実行(sudo必要)
 
@@ -284,6 +243,6 @@ $ kubectl get nodes
 
 ```sh
 NAME         STATUS   ROLES           AGE     VERSION
-k8smaster    Ready    control-plane   165m    v1.26.0
-k8sworker1   Ready    worker          4m48s   v1.26.0
+k8smaster    Ready    control-plane   165m    v1.26.1
+k8sworker1   Ready    worker          4m48s   v1.26.1
 ```
