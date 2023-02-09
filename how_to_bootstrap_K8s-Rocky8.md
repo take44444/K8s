@@ -202,7 +202,8 @@ workerノードで，コピペしておいた以下のコマンドを実行(sudo
 
 ```sh
 $ sudo kubeadm join 192.168.2.201:6443 --token k9oipi.grpjhyspab2jjk9b \
-  --discovery-token-ca-cert-hash sha256:841868d22f78bb3691cab610287f6df194b813e1fd564c9fbcd2808733739a9a
+  --discovery-token-ca-cert-hash sha256:841868d22f78bb3691cab610287f6df194b813e1fd564c9fbcd2808733739a9a \
+  --node-name worker1
 ```
 
 workerがReadyになるまで待つ
@@ -243,6 +244,6 @@ $ kubectl get nodes
 
 ```sh
 NAME         STATUS   ROLES           AGE     VERSION
-k8smaster    Ready    control-plane   165m    v1.26.1
-k8sworker1   Ready    worker          4m48s   v1.26.1
+master       Ready    control-plane   165m    v1.26.1
+worker1      Ready    worker          4m48s   v1.26.1
 ```
